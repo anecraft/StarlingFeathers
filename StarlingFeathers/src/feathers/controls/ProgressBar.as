@@ -1,6 +1,6 @@
 /*
 Feathers
-Copyright 2012-2014 Joshua Tynjala. All Rights Reserved.
+Copyright 2012-2015 Joshua Tynjala. All Rights Reserved.
 
 This program is free software. You can redistribute and/or modify it in
 accordance with the terms of the accompanying license agreement.
@@ -25,7 +25,7 @@ package feathers.controls
 	 * progress.value = 20;
 	 * this.addChild( progress );</listing>
 	 *
-	 * @see http://wiki.starling-framework.org/feathers/progress-bar
+	 * @see ../../../help/progress-bar.html How to use the Feathers ProgressBar component
 	 */
 	public class ProgressBar extends FeathersControl
 	{

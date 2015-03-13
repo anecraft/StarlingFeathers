@@ -1,6 +1,6 @@
 /*
 Feathers
-Copyright 2012-2014 Joshua Tynjala. All Rights Reserved.
+Copyright 2012-2015 Joshua Tynjala. All Rights Reserved.
 
 This program is free software. You can redistribute and/or modify it in
 accordance with the terms of the accompanying license agreement.
@@ -52,7 +52,7 @@ package feathers.controls
 	 * Displays a selected index, usually corresponding to a page index in
 	 * another UI control, using a highlighted symbol.
 	 *
-	 * @see http://wiki.starling-framework.org/feathers/page-indicator
+	 * @see ../../../help/page-indicator.html How to use the Feathers PageIndicator component
 	 */
 	public class PageIndicator extends FeathersControl
 	{

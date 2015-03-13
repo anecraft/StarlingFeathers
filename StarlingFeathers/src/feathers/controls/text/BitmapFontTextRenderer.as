@@ -1,6 +1,6 @@
 /*
 Feathers
-Copyright 2012-2014 Joshua Tynjala. All Rights Reserved.
+Copyright 2012-2015 Joshua Tynjala. All Rights Reserved.
 
 This program is free software. You can redistribute and/or modify it in
 accordance with the terms of the accompanying license agreement.
@@ -14,6 +14,7 @@ package feathers.controls.text
 
 	import flash.geom.Matrix;
 	import flash.geom.Point;
+	import flash.geom.Rectangle;
 	import flash.text.TextFormatAlign;
 
 	import starling.core.RenderSupport;
@@ -22,12 +23,13 @@ package feathers.controls.text
 	import starling.text.BitmapChar;
 	import starling.text.BitmapFont;
 	import starling.text.TextField;
+	import starling.textures.Texture;
 	import starling.textures.TextureSmoothing;
 
 	/**
 	 * Renders text using <code>starling.text.BitmapFont</code>.
 	 *
-	 * @see http://wiki.starling-framework.org/feathers/text-renderers
+	 * @see ../../../help/text-renderers.html Introduction to Feathers text renderers
 	 * @see http://doc.starling-framework.org/core/starling/text/BitmapFont.html starling.text.BitmapFont
 	 */
 	public class BitmapFontTextRenderer extends FeathersControl implements ITextRenderer
@@ -465,6 +467,13 @@ package feathers.controls.text
 				fontSizeScale = 1;
 			}
 			var baseline:Number = font.baseline;
+			//for some reason, if we don't call a function right here,
+			//compiling with the flex 4.6 SDK will throw a VerifyError
+			//for a stack overflow.
+			//we could change the !== check back to isNaN() instead, but
+			//isNaN() can allocate an object, so we should call a different
+			//function without allocation.
+			this.doNothing();
 			if(baseline !== baseline) //isNaN
 			{
 				return font.lineHeight * fontSizeScale;
@@ -585,8 +594,9 @@ package feathers.controls.text
 				var offsetX:Number = charData.xAdvance * scale;
 				if(this._wordWrap)
 				{
+					var currentCharIsWhitespace:Boolean = charID == CHARACTER_ID_SPACE || charID == CHARACTER_ID_TAB;
 					var previousCharIsWhitespace:Boolean = previousCharID == CHARACTER_ID_SPACE || previousCharID == CHARACTER_ID_TAB;
-					if(charID == CHARACTER_ID_SPACE || charID == CHARACTER_ID_TAB)
+					if(currentCharIsWhitespace)
 					{
 						if(!previousCharIsWhitespace)
 						{
@@ -602,7 +612,7 @@ package feathers.controls.text
 						word = "";
 					}
 
-					if(wordCountForLine > 0 && (currentX + offsetX) > maxLineWidth)
+					if(!currentCharIsWhitespace && wordCountForLine > 0 && (currentX + offsetX) > maxLineWidth)
 					{
 						//we're just reusing this variable to avoid creating a
 						//new one. it'll be reset to 0 in a moment.
@@ -629,13 +639,24 @@ package feathers.controls.text
 			{
 				currentX = 0;
 			}
+			//if the text ends in extra whitespace, the currentX value will be
+			//larger than the max line width. we'll remove that and add extra
+			//lines.
+			if(this._wordWrap)
+			{
+				while(currentX > maxLineWidth)
+				{
+					currentX -= maxLineWidth;
+					currentY += lineHeight;
+				}
+			}
 			if(maxX < currentX)
 			{
 				maxX = currentX;
 			}
 
 			result.x = maxX;
-			result.y = currentY + font.lineHeight * scale;
+			result.y = currentY + lineHeight;
 			return result;
 		}
 
@@ -775,8 +796,9 @@ package feathers.controls.text
 				var offsetX:Number = charData.xAdvance * scale;
 				if(this._wordWrap)
 				{
+					var currentCharIsWhitespace:Boolean = charID == CHARACTER_ID_SPACE || charID == CHARACTER_ID_TAB;
 					var previousCharIsWhitespace:Boolean = previousCharID == CHARACTER_ID_SPACE || previousCharID == CHARACTER_ID_TAB;
-					if(charID == CHARACTER_ID_SPACE || charID == CHARACTER_ID_TAB)
+					if(currentCharIsWhitespace)
 					{
 						if(!previousCharIsWhitespace)
 						{
@@ -801,7 +823,7 @@ package feathers.controls.text
 						this.addBufferToBatch(0);
 					}
 
-					if(wordCountForLine > 0 && (currentX + offsetX) > maxLineWidth)
+					if(!currentCharIsWhitespace && wordCountForLine > 0 && (currentX + offsetX) > maxLineWidth)
 					{
 						if(isAligned)
 						{
@@ -855,6 +877,17 @@ package feathers.controls.text
 				this.alignBuffer(maxLineWidth, currentX, 0);
 				this.addBufferToBatch(0);
 			}
+			//if the text ends in extra whitespace, the currentX value will be
+			//larger than the max line width. we'll remove that and add extra
+			//lines.
+			if(this._wordWrap)
+			{
+				while(currentX > maxLineWidth)
+				{
+					currentX -= maxLineWidth;
+					currentY += lineHeight;
+				}
+			}
 			if(maxX < currentX)
 			{
 				maxX = currentX;
@@ -879,7 +912,7 @@ package feathers.controls.text
 			this._characterBatch.x = this._batchX;
 
 			result.x = maxX;
-			result.y = currentY + font.lineHeight * scale;
+			result.y = currentY + lineHeight;
 			return result;
 		}
 
@@ -962,13 +995,26 @@ package feathers.controls.text
 		 */
 		protected function addCharacterToBatch(charData:BitmapChar, x:Number, y:Number, scale:Number, support:RenderSupport = null, parentAlpha:Number = 1):void
 		{
+			var texture:Texture = charData.texture;
+			var frame:Rectangle = texture.frame;
+			if(frame)
+			{
+				if(frame.width === 0 || frame.height === 0)
+				{
+					return;
+				}
+			}
+			else if(texture.width === 0 || texture.height === 0)
+			{
+				return;
+			}
 			if(!HELPER_IMAGE)
 			{
-				HELPER_IMAGE = new Image(charData.texture);
+				HELPER_IMAGE = new Image(texture);
 			}
 			else
 			{
-				HELPER_IMAGE.texture = charData.texture;
+				HELPER_IMAGE.texture = texture;
 				HELPER_IMAGE.readjustSize();
 			}
 			HELPER_IMAGE.scaleX = HELPER_IMAGE.scaleY = scale;
@@ -1126,6 +1172,13 @@ package feathers.controls.text
 			}
 			return this._text;
 		}
+
+		/**
+		 * @private
+		 * This function is here to work around a bug in the Flex 4.6 SDK
+		 * compiler. For explanation, see the places where it gets called.
+		 */
+		protected function doNothing():void {}
 	}
 }
 

@@ -1,6 +1,6 @@
 /*
 Feathers
-Copyright 2012-2014 Joshua Tynjala. All Rights Reserved.
+Copyright 2012-2015 Joshua Tynjala. All Rights Reserved.
 
 This program is free software. You can redistribute and/or modify it in
 accordance with the terms of the accompanying license agreement.
@@ -130,16 +130,7 @@ package feathers.controls.text
 	 * desktop applications only, and it does not provide support for software
 	 * keyboards on mobile devices.</p>
 	 *
-	 * <p><strong>Beta Component:</strong> This is a new component, and its APIs
-	 * may need some changes between now and the next version of Feathers to
-	 * account for overlooked requirements or other issues. Upgrading to future
-	 * versions of Feathers may involve manual changes to your code that uses
-	 * this component. The
-	 * <a href="http://wiki.starling-framework.org/feathers/deprecation-policy">Feathers deprecation policy</a>
-	 * will not go into effect until this component's status is upgraded from
-	 * beta to stable.</p>
-	 *
-	 * @see http://wiki.starling-framework.org/feathers/text-editors
+	 * @see ../../../help/text-editors.html Introduction to Feathers text editors
 	 * @see http://doc.starling-framework.org/core/starling/text/BitmapFont.html starling.text.BitmapFont
 	 */
 	public class BitmapFontTextEditor extends BitmapFontTextRenderer implements ITextEditor
@@ -408,6 +399,22 @@ package feathers.controls.text
 				this._text = value;
 			}
 			this.invalidate(INVALIDATION_FLAG_DATA);
+			var textLength:int = this._text.length;
+			//we need to account for the possibility that the text is in the
+			//middle of being selected when it changes
+			if(this._selectionAnchorIndex > textLength)
+			{
+				this._selectionAnchorIndex = textLength;
+			}
+			//then, we need to make sure the selected range is still valid
+			if(this._selectionBeginIndex > textLength)
+			{
+				this.selectRange(textLength, textLength);
+			}
+			else if(this._selectionEndIndex > textLength)
+			{
+				this.selectRange(this._selectionBeginIndex, textLength);
+			}
 			this.dispatchEventWith(starling.events.Event.CHANGE);
 		}
 
@@ -573,6 +580,7 @@ package feathers.controls.text
 				this._nativeFocus.removeEventListener(flash.events.Event.CUT, nativeStage_cutHandler);
 				this._nativeFocus.removeEventListener(flash.events.Event.COPY, nativeStage_copyHandler);
 				this._nativeFocus.removeEventListener(flash.events.Event.PASTE, nativeStage_pasteHandler);
+				this._nativeFocus.removeEventListener(flash.events.Event.SELECT_ALL, nativeStage_selectAllHandler);
 			}
 			this._nativeFocus = value;
 			if(this._nativeFocus)
@@ -580,6 +588,7 @@ package feathers.controls.text
 				this._nativeFocus.addEventListener(flash.events.Event.CUT, nativeStage_cutHandler, false, 0, true);
 				this._nativeFocus.addEventListener(flash.events.Event.COPY, nativeStage_copyHandler, false, 0, true);
 				this._nativeFocus.addEventListener(flash.events.Event.PASTE, nativeStage_pasteHandler, false, 0, true);
+				this._nativeFocus.addEventListener(flash.events.Event.SELECT_ALL, nativeStage_selectAllHandler, false, 0, true);
 			}
 		}
 
@@ -654,9 +663,9 @@ package feathers.controls.text
 				{
 					this._cursorSkin.visible = false;
 				}
-				else if(this._hasFocus)
+				else
 				{
-					this._cursorSkin.visible = this._selectionBeginIndex >= 0;
+					this._cursorSkin.visible = this._hasFocus;
 				}
 				this._selectionSkin.visible = false;
 			}
@@ -1132,9 +1141,9 @@ package feathers.controls.text
 			{
 				return;
 			}
-			//ignore cut, copy, and paste
+			//ignore select all, cut, copy, and paste
 			var charCode:uint = event.charCode;
-			if(event.ctrlKey && (charCode == 99 || charCode == 118 || charCode == 120)) //c, p, and x
+			if(event.ctrlKey && (charCode == 97 || charCode == 99 || charCode == 118 || charCode == 120)) //a, c, p, and x
 			{
 				return;
 			}
@@ -1283,13 +1292,9 @@ package feathers.controls.text
 					}
 					else if(this._selectionBeginIndex > 0)
 					{
-						this.text = currentValue.substr(0, this._selectionBeginIndex - 1) + currentValue.substr(this._selectionEndIndex);
 						newIndex = this._selectionBeginIndex - 1;
+						this.text = currentValue.substr(0, this._selectionBeginIndex - 1) + currentValue.substr(this._selectionEndIndex);
 					}
-				}
-				else if(event.ctrlKey && charCode == 97) //a
-				{
-					this.selectRange(0, currentValue.length);
 				}
 				else if(charCode >= 32 && !event.ctrlKey && !event.altKey) //ignore control characters
 				{
@@ -1307,6 +1312,18 @@ package feathers.controls.text
 			{
 				this.selectRange(newIndex, newIndex);
 			}
+		}
+
+		/**
+		 * @private
+		 */
+		protected function nativeStage_selectAllHandler(event:flash.events.Event):void
+		{
+			if(!this._isEditable || !this._isEnabled)
+			{
+				return;
+			}
+			this.selectRange(0, this._text.length);
 		}
 
 		/**

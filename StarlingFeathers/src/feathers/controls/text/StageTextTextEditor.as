@@ -1,6 +1,6 @@
 /*
 Feathers
-Copyright 2012-2014 Joshua Tynjala. All Rights Reserved.
+Copyright 2012-2015 Joshua Tynjala. All Rights Reserved.
 
 This program is free software. You can redistribute and/or modify it in
 accordance with the terms of the accompanying license agreement.
@@ -34,6 +34,7 @@ package feathers.controls.text
 
 	import starling.core.RenderSupport;
 	import starling.core.Starling;
+	import starling.display.DisplayObject;
 	import starling.display.Image;
 	import starling.events.Event;
 	import starling.textures.ConcreteTexture;
@@ -186,7 +187,7 @@ package feathers.controls.text
 	 * <code>StageText</code>, <code>StageTextTextEditor</code> is not
 	 * compatible with the Feathers <code>FocusManager</code>.</p>
 	 *
-	 * @see http://wiki.starling-framework.org/feathers/text-editors
+	 * @see ../../../help/text-editors.html Introduction to Feathers text editors
 	 * @see http://help.adobe.com/en_US/FlashPlatform/reference/actionscript/3/flash/text/StageText.html flash.text.StageText
 	 * @see feathers.text.StageTextField
 	 */
@@ -1856,6 +1857,7 @@ package feathers.controls.text
 		protected function stageText_focusInHandler(event:FocusEvent):void
 		{
 			this._stageTextHasFocus = true;
+			this.addEventListener(starling.events.Event.ENTER_FRAME, hasFocus_enterFrameHandler);
 			if(this.textSnapshot)
 			{
 				this.textSnapshot.visible = false;
@@ -1879,6 +1881,31 @@ package feathers.controls.text
 			this.invalidate(INVALIDATION_FLAG_DATA);
 			this.invalidate(INVALIDATION_FLAG_SKIN);
 			this.dispatchEventWith(FeathersEventType.FOCUS_OUT);
+		}
+
+		/**
+		 * @private
+		 */
+		protected function hasFocus_enterFrameHandler(event:starling.events.Event):void
+		{
+			if(this._stageTextHasFocus)
+			{
+				var target:DisplayObject = this;
+				do
+				{
+					if(!target.hasVisibleArea)
+					{
+						this.stageText.stage.focus = null;
+						break;
+					}
+					target = target.parent;
+				}
+				while(target)
+			}
+			else
+			{
+				this.removeEventListener(starling.events.Event.ENTER_FRAME, hasFocus_enterFrameHandler);
+			}
 		}
 
 		/**

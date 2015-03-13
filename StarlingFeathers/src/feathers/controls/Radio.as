@@ -1,6 +1,6 @@
 /*
 Feathers
-Copyright 2012-2014 Joshua Tynjala. All Rights Reserved.
+Copyright 2012-2015 Joshua Tynjala. All Rights Reserved.
 
 This program is free software. You can redistribute and/or modify it in
 accordance with the terms of the accompanying license agreement.
@@ -27,23 +27,23 @@ package feathers.controls
 	 * <listing version="3.0">
 	 * var group:ToggleGroup = new ToggleGroup();
 	 * group.addEventListener( Event.CHANGE, group_changeHandler );
-	 *
+	 * 
 	 * var radio1:Radio = new Radio();
 	 * radio1.label = "One";
 	 * radio1.toggleGroup = group;
 	 * this.addChild( radio1 );
-	 *
+	 * 
 	 * var radio2:Radio = new Radio();
 	 * radio2.label = "Two";
 	 * radio2.toggleGroup = group;
 	 * this.addChild( radio2 );
-	 *
+	 * 
 	 * var radio3:Radio = new Radio();
 	 * radio3.label = "Three";
 	 * radio3.toggleGroup = group;
 	 * this.addChild( radio3 );</listing>
 	 *
-	 * @see http://wiki.starling-framework.org/feathers/radio
+	 * @see ../../../help/radio.html How to use the Feathers Radio component
 	 * @see feathers.core.ToggleGroup
 	 */
 	public class Radio extends ToggleButton implements IGroupedToggle

@@ -1,6 +1,6 @@
 /*
 Feathers
-Copyright 2012-2014 Joshua Tynjala. All Rights Reserved.
+Copyright 2012-2015 Joshua Tynjala. All Rights Reserved.
 
 This program is free software. You can redistribute and/or modify it in
 accordance with the terms of the accompanying license agreement.
@@ -45,7 +45,7 @@ package feathers.layout
 	 * layout will change in height as the number of items increases or
 	 * decreases.
 	 *
-	 * @see http://wiki.starling-framework.org/feathers/tiled-rows-layout
+	 * @see ../../../help/tiled-rows-layout.html How to use TiledRowsLayout with Feathers containers
 	 */
 	public class TiledRowsLayout extends EventDispatcher implements IVirtualLayout
 	{
@@ -712,7 +712,7 @@ package feathers.layout
 		 * <p><strong>DEPRECATION WARNING:</strong> This property is deprecated
 		 * starting with Feathers 2.0. It will be removed in a future version of
 		 * Feathers according to the standard
-		 * <a href="http://wiki.starling-framework.org/feathers/deprecation-policy">Feathers deprecation policy</a>.
+		 * <a target="_top" href="../../../help/deprecation-policy.html">Feathers deprecation policy</a>.
 		 * Originally, the <code>manageVisibility</code> property could be used
 		 * to improve performance of non-virtual layouts by hiding items that
 		 * were outside the view port. However, other performance improvements
@@ -1144,7 +1144,7 @@ package feathers.layout
 						var discoveredItemsLastIndex:int = this._useVirtualLayout ? (this._discoveredItemsCache.length - 1) : (itemIndex - 1);
 						this.applyHorizontalAlign(discoveredItems, discoveredItemsFirstIndex, discoveredItemsLastIndex, totalPageWidth, availablePageWidth);
 						this.applyVerticalAlign(discoveredItems, discoveredItemsFirstIndex, discoveredItemsLastIndex, totalPageHeight, availablePageHeight);
-						if(this.manageVisibility)
+						if(this._manageVisibility)
 						{
 							this.applyVisible(discoveredItems, discoveredItemsFirstIndex, discoveredItemsLastIndex,
 								boundsX + scrollX, scrollX + availableWidth, boundsY + scrollY, scrollY + availableHeight);
@@ -1233,7 +1233,7 @@ package feathers.layout
 				discoveredItemsLastIndex = this._useVirtualLayout ? (discoveredItems.length - 1) : (i - 1);
 				this.applyHorizontalAlign(discoveredItems, discoveredItemsFirstIndex, discoveredItemsLastIndex, totalPageWidth, availablePageWidth);
 				this.applyVerticalAlign(discoveredItems, discoveredItemsFirstIndex, discoveredItemsLastIndex, totalPageHeight, availablePageHeight);
-				if(this.manageVisibility)
+				if(this._manageVisibility)
 				{
 					this.applyVisible(discoveredItems, discoveredItemsFirstIndex, discoveredItemsLastIndex,
 						boundsX + scrollX, scrollX + availableWidth, boundsY + scrollY, scrollY + availableHeight);
@@ -1281,7 +1281,7 @@ package feathers.layout
 				discoveredItemsLastIndex = discoveredItems.length - 1;
 				this.applyHorizontalAlign(discoveredItems, 0, discoveredItemsLastIndex, totalWidth, availableWidth);
 				this.applyVerticalAlign(discoveredItems, 0, discoveredItemsLastIndex, totalHeight, availableHeight);
-				if(this.manageVisibility)
+				if(this._manageVisibility)
 				{
 					this.applyVisible(discoveredItems, discoveredItemsFirstIndex, discoveredItemsLastIndex,
 						boundsX + scrollX, scrollX + availableWidth, boundsY + scrollY, scrollY + availableHeight);
@@ -1555,105 +1555,18 @@ package feathers.layout
 		/**
 		 * @inheritDoc
 		 */
+		public function getNearestScrollPositionForIndex(index:int, scrollX:Number, scrollY:Number, items:Vector.<DisplayObject>,
+			x:Number, y:Number, width:Number, height:Number, result:Point = null):Point
+		{
+			return this.calculateScrollPositionForIndex(index, items, x, y, width, height, result, true, scrollX, scrollY);
+		}
+
+		/**
+		 * @inheritDoc
+		 */
 		public function getScrollPositionForIndex(index:int, items:Vector.<DisplayObject>, x:Number, y:Number, width:Number, height:Number, result:Point = null):Point
 		{
-			if(!result)
-			{
-				result = new Point();
-			}
-
-			if(this._useVirtualLayout)
-			{
-				this.prepareTypicalItem();
-				var calculatedTypicalItemWidth:Number = this._typicalItem ? this._typicalItem.width : 0;
-				var calculatedTypicalItemHeight:Number = this._typicalItem ? this._typicalItem.height : 0;
-			}
-
-			var itemCount:int = items.length;
-			var tileWidth:Number = this._useVirtualLayout ? calculatedTypicalItemWidth : 0;
-			var tileHeight:Number = this._useVirtualLayout ? calculatedTypicalItemHeight : 0;
-			//a virtual layout assumes that all items are the same size as
-			//the typical item, so we don't need to measure every item in
-			//that case
-			if(!this._useVirtualLayout)
-			{
-				for(var i:int = 0; i < itemCount; i++)
-				{
-					var item:DisplayObject = items[i];
-					if(!item)
-					{
-						continue;
-					}
-					if(item is ILayoutDisplayObject && !ILayoutDisplayObject(item).includeInLayout)
-					{
-						continue;
-					}
-					var itemWidth:Number = item.width;
-					var itemHeight:Number = item.height;
-					if(itemWidth > tileWidth)
-					{
-						tileWidth = itemWidth;
-					}
-					if(itemHeight > tileHeight)
-					{
-						tileHeight = itemHeight;
-					}
-				}
-			}
-			if(tileWidth < 0)
-			{
-				tileWidth = 0;
-			}
-			if(tileHeight < 0)
-			{
-				tileHeight = 0;
-			}
-			if(this._useSquareTiles)
-			{
-				if(tileWidth > tileHeight)
-				{
-					tileHeight = tileWidth;
-				}
-				else if(tileHeight > tileWidth)
-				{
-					tileWidth = tileHeight;
-				}
-			}
-			var horizontalTileCount:int = (width - this._paddingLeft - this._paddingRight + this._horizontalGap) / (tileWidth + this._horizontalGap);
-			if(horizontalTileCount < 1)
-			{
-				horizontalTileCount = 1;
-			}
-			else if(this._requestedColumnCount > 0 && horizontalTileCount > this._requestedColumnCount)
-			{
-				horizontalTileCount = this._requestedColumnCount;
-			}
-			if(this._paging != PAGING_NONE)
-			{
-				var verticalTileCount:int = (height - this._paddingTop - this._paddingBottom + this._verticalGap) / (tileHeight + this._verticalGap);
-				if(verticalTileCount < 1)
-				{
-					verticalTileCount = 1;
-				}
-				var perPage:Number = horizontalTileCount * verticalTileCount;
-				var pageIndex:int = index / perPage;
-				if(this._paging == PAGING_HORIZONTAL)
-				{
-					result.x = pageIndex * width;
-					result.y = 0;
-				}
-				else
-				{
-					result.x = 0;
-					result.y = pageIndex * height;
-				}
-			}
-			else
-			{
-				result.x = 0;
-				result.y = this._paddingTop + ((tileHeight + this._verticalGap) * int(index / horizontalTileCount)) - Math.round((height - tileHeight) / 2);
-			}
-			return result;
+			return this.calculateScrollPositionForIndex(index, items, x, y, width, height, result, false);
 		}
 
 		/**
@@ -2118,6 +2031,136 @@ package feathers.layout
 			{
 				IValidating(this._typicalItem).validate();
 			}
+		}
+
+		/**
+		 * @inheritDoc
+		 */
+		public function calculateScrollPositionForIndex(index:int, items:Vector.<DisplayObject>,
+			x:Number, y:Number, width:Number, height:Number, result:Point = null,
+			nearest:Boolean = false, scrollX:Number = 0, scrollY:Number = 0):Point
+		{
+			if(!result)
+			{
+				result = new Point();
+			}
+
+			if(this._useVirtualLayout)
+			{
+				this.prepareTypicalItem();
+				var calculatedTypicalItemWidth:Number = this._typicalItem ? this._typicalItem.width : 0;
+				var calculatedTypicalItemHeight:Number = this._typicalItem ? this._typicalItem.height : 0;
+			}
+
+			var itemCount:int = items.length;
+			var tileWidth:Number = this._useVirtualLayout ? calculatedTypicalItemWidth : 0;
+			var tileHeight:Number = this._useVirtualLayout ? calculatedTypicalItemHeight : 0;
+			//a virtual layout assumes that all items are the same size as
+			//the typical item, so we don't need to measure every item in
+			//that case
+			if(!this._useVirtualLayout)
+			{
+				for(var i:int = 0; i < itemCount; i++)
+				{
+					var item:DisplayObject = items[i];
+					if(!item)
+					{
+						continue;
+					}
+					if(item is ILayoutDisplayObject && !ILayoutDisplayObject(item).includeInLayout)
+					{
+						continue;
+					}
+					var itemWidth:Number = item.width;
+					var itemHeight:Number = item.height;
+					if(itemWidth > tileWidth)
+					{
+						tileWidth = itemWidth;
+					}
+					if(itemHeight > tileHeight)
+					{
+						tileHeight = itemHeight;
+					}
+				}
+			}
+			if(tileWidth < 0)
+			{
+				tileWidth = 0;
+			}
+			if(tileHeight < 0)
+			{
+				tileHeight = 0;
+			}
+			if(this._useSquareTiles)
+			{
+				if(tileWidth > tileHeight)
+				{
+					tileHeight = tileWidth;
+				}
+				else if(tileHeight > tileWidth)
+				{
+					tileWidth = tileHeight;
+				}
+			}
+			var horizontalTileCount:int = (width - this._paddingLeft - this._paddingRight + this._horizontalGap) / (tileWidth + this._horizontalGap);
+			if(horizontalTileCount < 1)
+			{
+				horizontalTileCount = 1;
+			}
+			else if(this._requestedColumnCount > 0 && horizontalTileCount > this._requestedColumnCount)
+			{
+				horizontalTileCount = this._requestedColumnCount;
+			}
+			if(this._paging != PAGING_NONE)
+			{
+				var verticalTileCount:int = (height - this._paddingTop - this._paddingBottom + this._verticalGap) / (tileHeight + this._verticalGap);
+				if(verticalTileCount < 1)
+				{
+					verticalTileCount = 1;
+				}
+				var perPage:Number = horizontalTileCount * verticalTileCount;
+				var pageIndex:int = index / perPage;
+				if(this._paging == PAGING_HORIZONTAL)
+				{
+					result.x = pageIndex * width;
+					result.y = 0;
+				}
+				else
+				{
+					result.x = 0;
+					result.y = pageIndex * height;
+				}
+			}
+			else
+			{
+				var resultY:Number = this._paddingTop + ((tileHeight + this._verticalGap) * int(index / horizontalTileCount));
+				if(nearest)
+				{
+					var bottomPosition:Number = resultY - (height - tileHeight);
+					if(scrollY >= bottomPosition && scrollY <= resultY)
+					{
+						//keep the current scroll position because the item is already
+						//fully visible
+						resultY = scrollY;
+					}
+					else
+					{
+						var topDifference:Number = Math.abs(resultY - scrollY);
+						var bottomDifference:Number = Math.abs(bottomPosition - scrollY);
+						if(bottomDifference < topDifference)
+						{
+							resultY = bottomPosition;
+						}
+					}
+				}
+				else
+				{
+					resultY -= Math.round((height - tileHeight) / 2);
+				}
+				result.x = 0;
+				result.y = resultY;
+			}
+			return result;
 		}
 	}
 }

@@ -1,6 +1,6 @@
 /*
 Feathers
-Copyright 2012-2014 Joshua Tynjala. All Rights Reserved.
+Copyright 2012-2015 Joshua Tynjala. All Rights Reserved.
 
 This program is free software. You can redistribute and/or modify it in
 accordance with the terms of the accompanying license agreement.
@@ -310,20 +310,20 @@ package feathers.controls.supportClasses
 			this.invalidate(INVALIDATION_FLAG_ITEM_RENDERER_FACTORY);
 		}
 
-		private var _itemRendererName:String;
+		private var _customItemRendererStyleName:String;
 
-		public function get itemRendererName():String
+		public function get customItemRendererStyleName():String
 		{
-			return this._itemRendererName;
+			return this._customItemRendererStyleName;
 		}
 
-		public function set itemRendererName(value:String):void
+		public function set customItemRendererStyleName(value:String):void
 		{
-			if(this._itemRendererName == value)
+			if(this._customItemRendererStyleName == value)
 			{
 				return;
 			}
-			this._itemRendererName = value;
+			this._customItemRendererStyleName = value;
 			this.invalidate(INVALIDATION_FLAG_ITEM_RENDERER_FACTORY);
 		}
 
@@ -532,7 +532,19 @@ package feathers.controls.supportClasses
 			{
 				result = new Point();
 			}
-			return this._layout.getScrollPositionForIndex(index, this._layoutItems, 0, 0, this.actualVisibleWidth, this.actualVisibleHeight, result);
+			return this._layout.getScrollPositionForIndex(index, this._layoutItems,
+				0, 0, this.actualVisibleWidth, this.actualVisibleHeight, result);
+		}
+
+		public function getNearestScrollPositionForIndex(index:int, result:Point = null):Point
+		{
+			if(!result)
+			{
+				result = new Point();
+			}
+			return this._layout.getNearestScrollPositionForIndex(index,
+				this._horizontalScrollPosition, this._verticalScrollPosition,
+				this._layoutItems, 0, 0, this.actualVisibleWidth, this.actualVisibleHeight, result);
 		}
 
 		override public function dispose():void
@@ -653,7 +665,7 @@ package feathers.controls.supportClasses
 			var typicalItemIndex:int = 0;
 			var newTypicalItemIsInDataProvider:Boolean = false;
 			var typicalItem:Object = this._typicalItem;
-			if(typicalItem)
+			if(typicalItem !== null)
 			{
 				if(this._dataProvider)
 				{
@@ -674,9 +686,15 @@ package feathers.controls.supportClasses
 				}
 			}
 
-			if(typicalItem)
+			if(typicalItem !== null)
 			{
 				var typicalRenderer:IListItemRenderer = IListItemRenderer(this._rendererMap[typicalItem]);
+				if(typicalRenderer)
+				{
+					//the index may have changed if items were added, removed or
+					//reordered in the data provider
+					typicalRenderer.index = typicalItemIndex;
+				}
 				if(!typicalRenderer && this._typicalItemRenderer)
 				{
 					//we can reuse the typical item renderer if the old typical item
@@ -726,6 +744,13 @@ package feathers.controls.supportClasses
 			virtualLayout.typicalItem = DisplayObject(typicalRenderer);
 			this._typicalItemRenderer = typicalRenderer;
 			this._typicalItemIsInDataProvider = newTypicalItemIsInDataProvider;
+			if(this._typicalItemRenderer && !this._typicalItemIsInDataProvider)
+			{
+				//we need to know if this item renderer resizes to adjust the
+				//layout because the layout may use this item renderer to resize
+				//the other item renderers
+				this._typicalItemRenderer.addEventListener(FeathersEventType.RESIZE, renderer_resizeHandler);
+			}
 		}
 
 		private function refreshItemRendererStyles():void
@@ -904,7 +929,8 @@ package feathers.controls.supportClasses
 				var renderer:IListItemRenderer = IListItemRenderer(this._rendererMap[item]);
 				if(renderer)
 				{
-					//the index may have changed if data was added or removed
+					//the index may have changed if items were added, removed or
+					//reordered in the data provider
 					renderer.index = index;
 					//if this item renderer used to be the typical item
 					//renderer, but it isn't anymore, it may have been set invisible!
@@ -1036,9 +1062,9 @@ package feathers.controls.supportClasses
 						renderer = new this._itemRendererType();
 					}
 					var uiRenderer:IFeathersControl = IFeathersControl(renderer);
-					if(this._itemRendererName && this._itemRendererName.length > 0)
+					if(this._customItemRendererStyleName && this._customItemRendererStyleName.length > 0)
 					{
-						uiRenderer.styleNameList.add(this._itemRendererName);
+						uiRenderer.styleNameList.add(this._customItemRendererStyleName);
 					}
 					this.addChild(DisplayObject(renderer));
 				}
@@ -1060,6 +1086,7 @@ package feathers.controls.supportClasses
 			{
 				this._rendererMap[item] = renderer;
 				this._activeRenderers[this._activeRenderers.length] = renderer;
+				renderer.addEventListener(Event.TRIGGERED, renderer_triggeredHandler);
 				renderer.addEventListener(Event.CHANGE, renderer_changeHandler);
 				renderer.addEventListener(FeathersEventType.RESIZE, renderer_resizeHandler);
 				this._owner.dispatchEventWith(FeathersEventType.RENDERER_ADD, false, renderer);
@@ -1070,6 +1097,7 @@ package feathers.controls.supportClasses
 
 		private function destroyRenderer(renderer:IListItemRenderer):void
 		{
+			renderer.removeEventListener(Event.TRIGGERED, renderer_triggeredHandler);
 			renderer.removeEventListener(Event.CHANGE, renderer_changeHandler);
 			renderer.removeEventListener(FeathersEventType.RESIZE, renderer_resizeHandler);
 			renderer.owner = null;
@@ -1094,24 +1122,6 @@ package feathers.controls.supportClasses
 
 		private function dataProvider_addItemHandler(event:Event, index:int):void
 		{
-			var selectionChanged:Boolean = false;
-			var newIndices:Vector.<int> = new <int>[];
-			var indexCount:int = this._selectedIndices.length;
-			for(var i:int = 0; i < indexCount; i++)
-			{
-				var currentIndex:int = this._selectedIndices.getItemAt(i) as int;
-				if(currentIndex >= index)
-				{
-					currentIndex++;
-					selectionChanged = true;
-				}
-				newIndices.push(currentIndex);
-			}
-			if(selectionChanged)
-			{
-				this._selectedIndices.data = newIndices;
-			}
-
 			var layout:IVariableVirtualLayout = this._layout as IVariableVirtualLayout;
 			if(!layout || !layout.hasVariableItemDimensions)
 			{
@@ -1122,31 +1132,6 @@ package feathers.controls.supportClasses
 
 		private function dataProvider_removeItemHandler(event:Event, index:int):void
 		{
-			var selectionChanged:Boolean = false;
-			var newIndices:Vector.<int> = new <int>[];
-			var indexCount:int = this._selectedIndices.length;
-			for(var i:int = 0; i < indexCount; i++)
-			{
-				var currentIndex:int = this._selectedIndices.getItemAt(i) as int;
-				if(currentIndex == index)
-				{
-					selectionChanged = true;
-				}
-				else
-				{
-					if(currentIndex > index)
-					{
-						currentIndex--;
-						selectionChanged = true;
-					}
-					newIndices.push(currentIndex);
-				}
-			}
-			if(selectionChanged)
-			{
-				this._selectedIndices.data = newIndices;
-			}
-
 			var layout:IVariableVirtualLayout = this._layout as IVariableVirtualLayout;
 			if(!layout || !layout.hasVariableItemDimensions)
 			{
@@ -1157,12 +1142,6 @@ package feathers.controls.supportClasses
 
 		private function dataProvider_replaceItemHandler(event:Event, index:int):void
 		{
-			var indexOfIndex:int = this._selectedIndices.getItemIndex(index);
-			if(indexOfIndex >= 0)
-			{
-				this._selectedIndices.removeItemAt(indexOfIndex);
-			}
-
 			var layout:IVariableVirtualLayout = this._layout as IVariableVirtualLayout;
 			if(!layout || !layout.hasVariableItemDimensions)
 			{
@@ -1173,7 +1152,6 @@ package feathers.controls.supportClasses
 
 		private function dataProvider_resetHandler(event:Event):void
 		{
-			this._selectedIndices.removeAll();
 			this._updateForDataReset = true;
 
 			var layout:IVariableVirtualLayout = this._layout as IVariableVirtualLayout;
@@ -1212,6 +1190,12 @@ package feathers.controls.supportClasses
 			{
 				return;
 			}
+			this.invalidate(INVALIDATION_FLAG_LAYOUT);
+			this.invalidateParent(INVALIDATION_FLAG_LAYOUT);
+			if(event.currentTarget === this._typicalItemRenderer && !this._typicalItemIsInDataProvider)
+			{
+				return;
+			}
 			var layout:IVariableVirtualLayout = this._layout as IVariableVirtualLayout;
 			if(!layout || !layout.hasVariableItemDimensions)
 			{
@@ -1219,8 +1203,12 @@ package feathers.controls.supportClasses
 			}
 			var renderer:IListItemRenderer = IListItemRenderer(event.currentTarget);
 			layout.resetVariableVirtualCacheAtIndex(renderer.index, DisplayObject(renderer));
-			this.invalidate(INVALIDATION_FLAG_LAYOUT);
-			this.invalidateParent(INVALIDATION_FLAG_LAYOUT);
+		}
+
+		private function renderer_triggeredHandler(event:Event):void
+		{
+			var renderer:IListItemRenderer = IListItemRenderer(event.currentTarget);
+			this.parent.dispatchEventWith(Event.TRIGGERED, false, renderer.data);
 		}
 
 		private function renderer_changeHandler(event:Event):void

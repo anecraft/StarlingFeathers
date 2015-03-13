@@ -1,6 +1,6 @@
 /*
 Feathers
-Copyright 2012-2014 Joshua Tynjala. All Rights Reserved.
+Copyright 2012-2015 Joshua Tynjala. All Rights Reserved.
 
 This program is free software. You can redistribute and/or modify it in
 accordance with the terms of the accompanying license agreement.
@@ -27,8 +27,8 @@ package feathers.controls
 	 * check.addEventListener( Event.CHANGE, check_changeHandler );
 	 * this.addChild( check );</listing>
 	 *
-	 * @see http://wiki.starling-framework.org/feathers/check
-	 * @see ToggleSwitch
+	 * @see ../../../help/check.html How to use the Feathers Check component
+	 * @see feathers.controls.ToggleSwitch
 	 */
 	public class Check extends ToggleButton
 	{

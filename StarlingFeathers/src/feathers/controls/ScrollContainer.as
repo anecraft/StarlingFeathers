@@ -1,6 +1,6 @@
 /*
 Feathers
-Copyright 2012-2014 Joshua Tynjala. All Rights Reserved.
+Copyright 2012-2015 Joshua Tynjala. All Rights Reserved.
 
 This program is free software. You can redistribute and/or modify it in
 accordance with the terms of the accompanying license agreement.
@@ -8,12 +8,17 @@ accordance with the terms of the accompanying license agreement.
 package feathers.controls
 {
 	import feathers.controls.supportClasses.LayoutViewPort;
+	import feathers.core.IFeathersControl;
+	import feathers.core.IFocusContainer;
+	import feathers.events.FeathersEventType;
 	import feathers.layout.ILayout;
+	import feathers.layout.ILayoutDisplayObject;
 	import feathers.layout.IVirtualLayout;
 	import feathers.skins.IStyleProvider;
 
 	import starling.display.DisplayObject;
 	import starling.display.DisplayObjectContainer;
+	import starling.events.Event;
 
 	/**
 	 * Dispatched when the container is scrolled.
@@ -53,19 +58,19 @@ package feathers.controls
 	 * layout.padding = 20;
 	 * container.layout = layout;
 	 * this.addChild( container );
-	 *
+	 * 
 	 * var yesButton:Button = new Button();
 	 * yesButton.label = "Yes";
 	 * container.addChild( yesButton );
-	 *
+	 * 
 	 * var noButton:Button = new Button();
 	 * noButton.label = "No";
 	 * container.addChild( noButton );</listing>
 	 *
-	 * @see http://wiki.starling-framework.org/feathers/scroll-container
+	 * @see ../../../help/scroll-container.html How to use the Feathers ScrollContainer component
 	 * @see feathers.controls.LayoutGroup
 	 */
-	public class ScrollContainer extends Scroller implements IScrollContainer
+	public class ScrollContainer extends Scroller implements IScrollContainer, IFocusContainer
 	{
 		/**
 		 * @private
@@ -73,26 +78,38 @@ package feathers.controls
 		protected static const INVALIDATION_FLAG_MXML_CONTENT:String = "mxmlContent";
 
 		/**
-		 * An alternate name to use with <code>ScrollContainer</code> to allow a
-		 * theme to give it a toolbar style. If a theme does not provide a skin
-		 * for the toolbar style, the theme will automatically fall back to
-		 * using the default scroll container skin.
+		 * An alternate style name to use with <code>ScrollContainer</code> to
+		 * allow a theme to give it a toolbar style. If a theme does not provide
+		 * a style for the toolbar container, the theme will automatically fall
+		 * back to using the default scroll container skin.
 		 *
-		 * <p>An alternate name should always be added to a component's
-		 * <code>styleNameList</code> before the component is added to the stage for
-		 * the first time. If it is added later, it will be ignored.</p>
+		 * <p>An alternate style name should always be added to a component's
+		 * <code>styleNameList</code> before the component is initialized. If
+		 * the style name is added later, it will be ignored.</p>
 		 *
 		 * <p>In the following example, the toolbar style is applied to a scroll
 		 * container:</p>
 		 *
 		 * <listing version="3.0">
 		 * var container:ScrollContainer = new ScrollContainer();
-		 * container.styleNameList.add( ScrollContainer.ALTERNATE_NAME_TOOLBAR );
+		 * container.styleNameList.add( ScrollContainer.ALTERNATE_STYLE_NAME_TOOLBAR );
 		 * this.addChild( container );</listing>
 		 *
 		 * @see feathers.core.FeathersControl#styleNameList
 		 */
-		public static const ALTERNATE_NAME_TOOLBAR:String = "feathers-toolbar-scroll-container";
+		public static const ALTERNATE_STYLE_NAME_TOOLBAR:String = "feathers-toolbar-scroll-container";
+
+		/**
+		 * DEPRECATED: Replaced by <code>ScrollContainer.ALTERNATE_STYLE_NAME_TOOLBAR</code>.
+		 *
+		 * <p><strong>DEPRECATION WARNING:</strong> This property is deprecated
+		 * starting with Feathers 2.1. It will be removed in a future version of
+		 * Feathers according to the standard
+		 * <a target="_top" href="../../../help/deprecation-policy.html">Feathers deprecation policy</a>.</p>
+		 *
+		 * @see ScrollContainer#ALTERNATE_STYLE_NAME_TOOLBAR
+		 */
+		public static const ALTERNATE_NAME_TOOLBAR:String = ALTERNATE_STYLE_NAME_TOOLBAR;
 
 		/**
 		 * @copy feathers.controls.Scroller#SCROLL_POLICY_AUTO
@@ -175,6 +192,20 @@ package feathers.controls
 		public static const INTERACTION_MODE_TOUCH_AND_SCROLL_BARS:String = "touchAndScrollBars";
 
 		/**
+		 * @copy feathers.controls.Scroller#MOUSE_WHEEL_SCROLL_DIRECTION_VERTICAL
+		 *
+		 * @see feathers.controls.Scroller#verticalMouseWheelScrollDirection
+		 */
+		public static const MOUSE_WHEEL_SCROLL_DIRECTION_VERTICAL:String = "vertical";
+
+		/**
+		 * @copy feathers.controls.Scroller#MOUSE_WHEEL_SCROLL_DIRECTION_HORIZONTAL
+		 *
+		 * @see feathers.controls.Scroller#verticalMouseWheelScrollDirection
+		 */
+		public static const MOUSE_WHEEL_SCROLL_DIRECTION_HORIZONTAL:String = "horizontal";
+
+		/**
 		 * @copy feathers.controls.Scroller#DECELERATION_RATE_NORMAL
 		 *
 		 * @see feathers.controls.Scroller#decelerationRate
@@ -187,6 +218,20 @@ package feathers.controls
 		 * @see feathers.controls.Scroller#decelerationRate
 		 */
 		public static const DECELERATION_RATE_FAST:Number = 0.99;
+
+		/**
+		 * The container will auto size itself to fill the entire stage.
+		 *
+		 * @see #autoSizeMode
+		 */
+		public static const AUTO_SIZE_MODE_STAGE:String = "stage";
+
+		/**
+		 * The container will auto size itself to fit its content.
+		 *
+		 * @see #autoSizeMode
+		 */
+		public static const AUTO_SIZE_MODE_CONTENT:String = "content";
 
 		/**
 		 * The default <code>IStyleProvider</code> for all <code>ScrollContainer</code>
@@ -205,6 +250,8 @@ package feathers.controls
 			super();
 			this.layoutViewPort = new LayoutViewPort();
 			this.viewPort = this.layoutViewPort;
+			this.addEventListener(Event.ADDED_TO_STAGE, scrollContainer_addedToStageHandler);
+			this.addEventListener(Event.REMOVED_FROM_STAGE, scrollContainer_removedFromStageHandler);
 		}
 
 		/**
@@ -225,6 +272,31 @@ package feathers.controls
 		override protected function get defaultStyleProvider():IStyleProvider
 		{
 			return ScrollContainer.globalStyleProvider;
+		}
+
+		/**
+		 * @private
+		 */
+		protected var _isChildFocusEnabled:Boolean = true;
+
+		/**
+		 * @copy feathers.core.IFocusContainer#isChildFocusEnabled
+		 *
+		 * @default true
+		 *
+		 * @see #isFocusEnabled
+		 */
+		public function get isChildFocusEnabled():Boolean
+		{
+			return this._isEnabled && this._isChildFocusEnabled;
+		}
+
+		/**
+		 * @private
+		 */
+		public function set isChildFocusEnabled(value:Boolean):void
+		{
+			this._isChildFocusEnabled = value;
 		}
 
 		/**
@@ -262,6 +334,56 @@ package feathers.controls
 			}
 			this._layout = value;
 			this.invalidate(INVALIDATION_FLAG_LAYOUT);
+		}
+
+		/**
+		 * @private
+		 */
+		protected var _autoSizeMode:String = AUTO_SIZE_MODE_CONTENT;
+
+		[Inspectable(type="String",enumeration="stage,content")]
+		/**
+		 * Determines how the container will set its own size when its
+		 * dimensions (width and height) aren't set explicitly.
+		 *
+		 * <p>In the following example, the container will be sized to
+		 * match the stage:</p>
+		 *
+		 * <listing version="3.0">
+		 * container.autoSizeMode = ScrollContainer.AUTO_SIZE_MODE_STAGE;</listing>
+		 *
+		 * @default ScrollContainer.AUTO_SIZE_MODE_CONTENT
+		 *
+		 * @see #AUTO_SIZE_MODE_STAGE
+		 * @see #AUTO_SIZE_MODE_CONTENT
+		 */
+		public function get autoSizeMode():String
+		{
+			return this._autoSizeMode;
+		}
+
+		/**
+		 * @private
+		 */
+		public function set autoSizeMode(value:String):void
+		{
+			if(this._autoSizeMode == value)
+			{
+				return;
+			}
+			this._autoSizeMode = value;
+			if(this.stage)
+			{
+				if(this._autoSizeMode == AUTO_SIZE_MODE_STAGE)
+				{
+					this.stage.addEventListener(Event.RESIZE, stage_resizeHandler);
+				}
+				else
+				{
+					this.stage.removeEventListener(Event.RESIZE, stage_resizeHandler);
+				}
+			}
+			this.invalidate(INVALIDATION_FLAG_SIZE);
 		}
 
 		/**
@@ -305,6 +427,11 @@ package feathers.controls
 			this._mxmlContentIsReady = false;
 			this.invalidate(INVALIDATION_FLAG_MXML_CONTENT);
 		}
+
+		/**
+		 * @private
+		 */
+		protected var _ignoreChildChanges:Boolean = false;
 
 		/**
 		 * @private
@@ -406,7 +533,17 @@ package feathers.controls
 			{
 				return super.addChildAt(child, index);
 			}
-			return DisplayObjectContainer(this.viewPort).addChildAt(child, index);
+			var result:DisplayObject = DisplayObjectContainer(this.viewPort).addChildAt(child, index);
+			if(result is IFeathersControl)
+			{
+				result.addEventListener(Event.RESIZE, child_resizeHandler);
+			}
+			if(result is ILayoutDisplayObject)
+			{
+				result.addEventListener(FeathersEventType.LAYOUT_DATA_CHANGE, child_layoutDataChangeHandler);
+			}
+			this.invalidate(INVALIDATION_FLAG_SIZE);
+			return result;
 		}
 
 		/**
@@ -446,7 +583,17 @@ package feathers.controls
 			{
 				return super.removeChildAt(index, dispose);
 			}
-			return DisplayObjectContainer(this.viewPort).removeChildAt(index, dispose);
+			var result:DisplayObject = DisplayObjectContainer(this.viewPort).removeChildAt(index, dispose);
+			if(result is IFeathersControl)
+			{
+				result.removeEventListener(Event.RESIZE, child_resizeHandler);
+			}
+			if(result is ILayoutDisplayObject)
+			{
+				result.removeEventListener(FeathersEventType.LAYOUT_DATA_CHANGE, child_layoutDataChangeHandler);
+			}
+			this.invalidate(INVALIDATION_FLAG_SIZE);
+			return result;
 		}
 
 		/**
@@ -621,7 +768,28 @@ package feathers.controls
 				this.layoutViewPort.layout = this._layout;
 			}
 
+			var oldIgnoreChildChanges:Boolean = this._ignoreChildChanges;
+			this._ignoreChildChanges = true;
 			super.draw();
+			this._ignoreChildChanges = oldIgnoreChildChanges;
+		}
+
+		/**
+		 * @private
+		 */
+		override protected function autoSizeIfNeeded():Boolean
+		{
+			var needsWidth:Boolean = this.explicitWidth !== this.explicitWidth; //isNaN
+			var needsHeight:Boolean = this.explicitHeight !== this.explicitHeight; //isNaN
+			if(!needsWidth && !needsHeight)
+			{
+				return false;
+			}
+			if(this._autoSizeMode == AUTO_SIZE_MODE_STAGE)
+			{
+				return this.setSizeInternal(this.stage.stageWidth, this.stage.stageHeight, false);
+			}
+			return super.autoSizeIfNeeded();
 		}
 
 		/**
@@ -640,6 +808,57 @@ package feathers.controls
 				this.addChild(child);
 			}
 			this._mxmlContentIsReady = true;
+		}
+
+		/**
+		 * @private
+		 */
+		protected function scrollContainer_addedToStageHandler(event:Event):void
+		{
+			if(this._autoSizeMode == AUTO_SIZE_MODE_STAGE)
+			{
+				this.stage.addEventListener(Event.RESIZE, stage_resizeHandler);
+			}
+		}
+
+		/**
+		 * @private
+		 */
+		protected function scrollContainer_removedFromStageHandler(event:Event):void
+		{
+			this.stage.removeEventListener(Event.RESIZE, stage_resizeHandler);
+		}
+
+		/**
+		 * @private
+		 */
+		protected function child_resizeHandler(event:Event):void
+		{
+			if(this._ignoreChildChanges)
+			{
+				return;
+			}
+			this.invalidate(INVALIDATION_FLAG_SIZE);
+		}
+
+		/**
+		 * @private
+		 */
+		protected function child_layoutDataChangeHandler(event:Event):void
+		{
+			if(this._ignoreChildChanges)
+			{
+				return;
+			}
+			this.invalidate(INVALIDATION_FLAG_SIZE);
+		}
+
+		/**
+		 * @private
+		 */
+		protected function stage_resizeHandler(event:Event):void
+		{
+			this.invalidate(INVALIDATION_FLAG_SIZE);
 		}
 	}
 }
